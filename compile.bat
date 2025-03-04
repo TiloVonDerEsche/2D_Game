@@ -1,0 +1,1 @@
+gcc main.c -o start -I"E:\res\SDL3\include"  -L"E:\res\SDL3\build" -lSDL3 -Wall -pedantic
