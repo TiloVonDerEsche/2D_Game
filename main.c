@@ -1,5 +1,5 @@
 /*
-Version: 0.1.1
+Version: 0.1.5
 C Standard: C17
 Author: Tilo von Eschwege
 */
@@ -11,7 +11,7 @@ Author: Tilo von Eschwege
 #include <stdio.h>
 
 #include "E:\res\SDL3\include\SDL3\SDL.h"
-#include "physics.h"
+#include "helper.h"
 
 #define WINDOW_WIDTH 2560
 #define WINDOW_HEIGHT 1440
@@ -22,14 +22,27 @@ Author: Tilo von Eschwege
 #define TRUE 1
 #define FALSE 0
 
-#define MQ 2
+#define MQ 4
 
-typedef struct  {
+#define COLONIST_LIMIT 100
+#define TROOP_LIMIT 100
+
+#define TROOP_WIDTH 30
+#define TROOP_HEIGHT 30
+
+
+typedef struct Resources{
   uint16_t food;
   uint16_t colonists;
-} Resources;
+} resources;
 
-Resources res = {0,0};
+typedef struct Formation {
+  vec2D flags[20];
+  uint16_t num;
+  uint16_t troops[TROOP_LIMIT];
+} formation;
+
+resources res = {0,0};
 
 char* window_title = "2D Game";
 uint8_t game_is_running = FALSE;
@@ -46,12 +59,26 @@ char* colonist_label;
 float spawn_density = 1.0;
 
 vec2D mouse;
+vec2D flag;
 
-bl* colonists;
+vec2D drag_start;
+bool dragging = 0; //tracks holding LMB
+bool follow_flag = 0;
+
 bl* grid;
+bl* colonists;
+bl* troops;
 bl* map;
 
-static bl* movables[MQ];
+uint16_t* selected_troops;
+uint16_t* selected_colonists;
+
+uint16_t selected_troop_num = 0;
+uint16_t selected_colonist_num = 0;
+
+
+bl** movables[MQ];
+formation army[10];
 
 uint16_t tile_width = 50;
 uint16_t tile_height = 50;
@@ -73,7 +100,7 @@ size_t get_tile_index(int x, int y) {
   int tile_x = x / tile_width;
   int tile_y = y / tile_height;
 
-  printf("Tile: (%d, %d)\n",tile_x,tile_y);
+  //printf("Tile: (%d, %d)\n",tile_x,tile_y);
   return tile_y * tiles_x + tile_x;
 }
 
@@ -90,9 +117,9 @@ void draw_grid(uint16_t width, uint16_t height) {//width, height of a tile
   for (size_t y = 0; y < tiles_y; y++) {
     for (size_t x = 0; x < tiles_x; x++) {
       if ((x % 2 + y % 2) % 2) {c=ca;} else {c=cb;}
-      spawn_ball(x*width, y*height, width, height, 0, c, &grid);
-      grid->num++;
-      printf("grid->num: %lld\n", grid->num);
+      spawn_ball(x*width, y*height, width, height, c, &grid);
+
+      //printf("grid->num: %lld\n", grid->num);
     }
   }
 
@@ -113,19 +140,20 @@ void switch_color(ball* tile) {
 
 void move_map(int dx, int dy) {
   //determine largest quantity
-  int maxm = movables[1]->num;
+  size_t maxm = (*movables[1])->num;
+
   for(size_t i = 2; i < MQ; i++) {
-    if (movables[i]->num > maxm) {
-      maxm = movables[i]->num;
+    if ((*movables[i])->num > maxm) {
+      maxm = (*movables[i])->num;
     }
   }
 
   //grid excluded
   for(size_t j = 1; j < MQ; j++) {
     for(size_t i = 0; i < maxm; i++) {
-      if (i < movables[j]->num) {
-        movables[j]->arr[i].pos.x += dx;
-        movables[j]->arr[i].pos.y += dy;
+      if (i < (*movables[j])->num) {
+        (*movables[j])->arr[i].pos.x += dx;
+        (*movables[j])->arr[i].pos.y += dy;
       }
     }
   }
@@ -142,32 +170,32 @@ void move_map(int dx, int dy) {
   move_map_counter_y += dy;
 
   //printf("First tile: (%d, %d)\n",movables[0]->arr[0].pos.x, movables[0]->arr[0].pos.y);
-  printf("Counter: (%d, %d)\n",move_map_counter_x, move_map_counter_y);
-  printf("Condition: %d\n",move_map_counter_y <= -tile_height);
-
-  for(size_t i = 0; i < movables[0]->num; i++) {
-      movables[0]->arr[i].pos.x += dx;
-      movables[0]->arr[i].pos.y += dy;
+  //printf("Counter: (%d, %d)\n",move_map_counter_x, move_map_counter_y);
+  //printf("Condition: %d\n",move_map_counter_y <= -tile_height);
+  bl* grid_bl = *movables[0];
+  for(size_t i = 0; i < grid_bl->num; i++) {
+      grid_bl->arr[i].pos.x += dx;
+      grid_bl->arr[i].pos.y += dy;
 
 
 
       //modulo tile reset
       if (move_map_counter_x >= tile_width) {
-        movables[0]->arr[i].pos.x -= tile_width;
-        switch_color(&movables[0]->arr[i]);
+        grid_bl->arr[i].pos.x -= tile_width;
+        switch_color(&grid_bl->arr[i]);
         reset_x = 1;}
       else if (move_map_counter_x <= -tile_width) {
-        movables[0]->arr[i].pos.x += tile_width;
-        switch_color(&movables[0]->arr[i]);
+        grid_bl->arr[i].pos.x += tile_width;
+        switch_color(&grid_bl->arr[i]);
         reset_x = 1;}
 
       if (move_map_counter_y >= tile_height) {
-        movables[0]->arr[i].pos.y -= tile_height;
-        switch_color(&movables[0]->arr[i]);
+        grid_bl->arr[i].pos.y -= tile_height;
+        switch_color(&grid_bl->arr[i]);
         reset_y = 1;}
       if (move_map_counter_y <= -tile_height) {
-        movables[0]->arr[i].pos.y += tile_height;
-        switch_color(&movables[0]->arr[i]);
+        grid_bl->arr[i].pos.y += tile_height;
+        switch_color(&grid_bl->arr[i]);
         reset_y = 1;
       }
   }
@@ -179,12 +207,49 @@ void move_map(int dx, int dy) {
 
 }
 
-/*
-* Write a function that loops the tiles back around,
-* By changing x or y if the edge of the grid is nearing the screen
-*
-*/
 
+void move_colonists(){
+  return;
+}
+
+void move_troops(float troop_velo){
+  if (follow_flag) {
+    ball* t;
+    vec2D fv;
+    vec2D fvn;
+
+    uint16_t j;
+    for(size_t i = 0; i < selected_troop_num; i++) {
+      j = selected_troops[i];
+      t = &troops->arr[j];
+      fv = dvec(t->pos,flag); //vector from t to flag
+      fvn = normalize(fv);
+
+      t->pos.x += troop_velo * fvn.x;
+      t->pos.y += troop_velo * fvn.y;
+    }
+  }
+}
+
+
+
+void select_troops(vec2D p0, vec2D p1) {
+  selected_troop_num = 0;
+
+  ball* t;
+  for(int i = 0; i < troops->num; i++) {
+    t = &troops->arr[i];
+    //t in selecting rect?
+    if ((t->pos.x < p1.x && t->pos.x > p0.x) || (t->pos.x > p1.x && t->pos.x < p0.x)) {
+      if((t->pos.y < p1.y && t->pos.y > p0.y) || (t->pos.y > p1.y && t->pos.y < p0.y)) {
+        if (selected_troop_num < TROOP_LIMIT) {
+          selected_troops[selected_troop_num] = i;
+          selected_troop_num++;
+        }
+      }
+    }
+  }
+}
 
 
 
@@ -237,9 +302,72 @@ int initialize_window()
 }
 
 
-/*********************
-* Handles user-input.
-*********************/
+void setup()
+{
+  // vec2D p0 = {1,5};
+  // vec2D p1 = {2,-1};
+  //
+  // vec2D p2 = dvec(p0, p1);
+  //
+  // printf("(%d, %d)\n",p2.x, p2.y);
+  flag.x = WINDOW_WIDTH/2;
+  flag.y = WINDOW_HEIGHT/2 - 200;
+
+  grid = malloc(sizeof(bl) + 5 * sizeof(ball));
+  grid->num = 1;
+  grid->len = 5;
+
+  draw_grid(tile_width,tile_height);
+  //printf("Last tile: (%f, %f)\n", grid->arr[grid->num - 1].pos.x, grid->arr[grid->num - 1].pos.y);
+  printf("Setup function: grid->num: %lld\n", grid->num);
+
+
+  colonists = malloc(sizeof(bl) + 10 * sizeof(ball));  // 20 balls
+  colonists->num = 0;
+  colonists->len = 10;
+
+  spawn_ball(500,500, 10, 10, red, &colonists);
+  spawn_ball(520,500, 10, 10, red, &colonists);
+  spawn_ball(540,500, 10, 10, red, &colonists);
+
+  res.colonists = 3;
+
+  troops = malloc(sizeof(bl) + 10 * sizeof(ball));
+  troops->num = 0;
+  troops->len = 10;
+
+  spawn_ball(WINDOW_WIDTH/2, WINDOW_HEIGHT/2,30,30, red, &troops);
+  spawn_ball(WINDOW_WIDTH/2 + 250, WINDOW_HEIGHT/2,30,30, red, &troops);
+  spawn_ball(WINDOW_WIDTH/2 + 500, WINDOW_HEIGHT/2,30,30, red, &troops);
+  spawn_ball(WINDOW_WIDTH/2 + 750, WINDOW_HEIGHT/2,30,30, red, &troops);
+  spawn_ball(WINDOW_WIDTH/2 + 1000, WINDOW_HEIGHT/2,30,30, red, &troops);
+
+  selected_colonists = malloc(COLONIST_LIMIT * sizeof(uint16_t));
+  selected_troops = malloc(TROOP_LIMIT * sizeof(uint16_t));
+
+  selected_troops[0] = 0;
+  selected_troops[1] = 1;
+
+  selected_troop_num = 2;
+
+  map = malloc(sizeof(bl) + 10 * sizeof(ball));
+  map->num = 0;
+  map->len = 10;
+
+  spawn_ball(100,100,400,50, blue, &map);
+  spawn_ball(500,100,400,50, green, &map);
+
+  movables[0] = &grid;
+  movables[1] = &colonists;
+  movables[2] = &map;
+  movables[3] = &troops;
+
+
+
+  food_label = calloc(6 + sizeof(int),1); //"Food: %d"-> 6 + sizeof(int)
+  colonist_label = calloc(11 + sizeof(float),1); //"Colonists: %d" -> 11+ sizeof(int)
+}
+
 void process_input()
 {
     SDL_Event event;
@@ -260,8 +388,9 @@ void process_input()
                 break;
 
               case SDLK_O:
-                grid->num = 0;
-                draw_grid(tile_width,tile_height);
+                setup();
+                // grid->num = 0;
+                // draw_grid(tile_width,tile_height);
                 break;
 
               case SDLK_W:
@@ -279,6 +408,11 @@ void process_input()
               case SDLK_D:
                 move_map(10, 0);
                 break;
+              default:
+                //keys 0 - 9
+                if((48 <= event.key.key) && (event.key.key <= 57)) {
+                  printf("Key %d\n",event.key.key-48);
+                }
 
             }
             break;
@@ -290,24 +424,37 @@ void process_input()
 
             break;
 
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+          switch(event.button.button) {
+            case 1:
+              dragging = 0;
+
+              //put all of the troops inside of the selecting rect
+              //into selected_troops
+              select_troops(mouse, drag_start);
+              break;
+          }
+          break;
+
+
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            printf("mouse=(%d, %d)\n",(int)mouse.x, (int)mouse.y);
-            printf("Mouse button:%d\n", event.button.button);
+            //printf("mouse=(%d, %d)\n",(int)mouse.x, (int)mouse.y);
+            //printf("Mouse button:%d\n", event.button.button);
 
             switch(event.button.button) {
               case 1:
-                printf("Coloring tile at index: %lld\n", get_tile_index(mouse.x,mouse.y));
-                if (((int)(mouse.x/grid_width) % 2 + (int)(mouse.y/grid_height) % 2) % 2) {
-                  grid->arr[get_tile_index(mouse.x,mouse.y)].color.g = 70;}
-                else {
-                  grid->arr[get_tile_index(mouse.x,mouse.y)].color.b = 70;}
-
-
+                dragging = 1;
+                drag_start = mouse;
+                follow_flag = 0;
                 break;
               case 2:
-
+                spawn_ball(mouse.x,mouse.y, 10, 10, red, &colonists);
+                res.colonists += 1;
                 break;
               case 3:
+                follow_flag = 1;
+                flag.x = mouse.x;
+                flag.y = mouse.y;
 
                 break;
             }
@@ -318,50 +465,22 @@ void process_input()
 
 
 /************************
-* Gets called only once.
-*************************/
-void setup()
-{
-
-  grid = malloc(sizeof(bl) + 5 * sizeof(ball));
-  grid->num = 0;
-  grid->len = 5;
-
-  draw_grid(tile_width,tile_height);
-  printf("Last tile: (%d, %d)\n", grid->arr[grid->num - 1].pos.x, grid->arr[grid->num - 1].pos.y);
-  printf("Setup function: grid->num: %lld\n", grid->num);
-
-
-  colonists = malloc(sizeof(bl) + 10 * sizeof(ball));  // 20 balls
-  colonists->num = 3;
-  colonists->len = 10;
-
-  map = malloc(sizeof(bl) + 5 * sizeof(ball));
-  map->num = 2;
-  map->len = 5;
-
-  spawn_ball(100,100,400,50, 0, neutron_color, &colonists);
-  spawn_ball(500,100,400,50, 0, electron_color, &colonists);
-
-  movables[0] = grid;
-  movables[1] = colonists;
-  movables[2] = map;
-
-  spawn_ball(500,500, 10, 10, 0, proton_color, &colonists);
-  spawn_ball(520,500, 10, 10, 0, proton_color, &colonists);
-  spawn_ball(540,500, 10, 10, 0, proton_color, &colonists);
-
-  food_label = calloc(6 + sizeof(int),1); //"Food: %d"-> 6 + sizeof(int)
-  colonist_label = calloc(11 + sizeof(float),1); //"Colonists: %d" -> 11+ sizeof(int)
-}
-
-
-/************************
 * Applies physics
 * To the game objects.
 *************************/
 void update()
 {
+    //moves all colonists
+    //randomly or (wandering),
+    //moving to their shops (working)
+    move_colonists();
+
+    //slerping all selected troops to the set flag (with RMB)
+    move_troops(1);
+    //printf("drag_start=(%f,%f)\n",drag_start.x,drag_start.y);
+
+
+
     //delay, so that the capped framerate is reached (and not overshoot).
     int time_to_wait = FRAME_TARGET_TIME - (SDL_GetTicks() - last_frame_time);
 
@@ -374,10 +493,53 @@ void update()
     delta_time = (SDL_GetTicks() - last_frame_time) / 1000.0f;
 
     last_frame_time = SDL_GetTicks();
-
-
 }
 
+
+
+void render_selecting_rect() {
+  if (dragging) {
+    SDL_SetRenderDrawColor(renderer, 226, 235, 52, 100);
+
+    SDL_RenderLine(renderer, drag_start.x, drag_start.y, drag_start.x, mouse.y);
+    SDL_RenderLine(renderer, drag_start.x, drag_start.y, mouse.x, drag_start.y);
+
+    SDL_RenderLine(renderer, mouse.x, mouse.y, drag_start.x, mouse.y);
+    SDL_RenderLine(renderer, mouse.x, mouse.y, mouse.x, drag_start.y);
+  }
+}
+
+void render_selected_troops() {
+  ball* t;
+  uint16_t j;
+  for(uint16_t i = 0; i < selected_troop_num; i++) {
+    j = selected_troops[i];
+    t = &troops->arr[j];
+    SDL_FRect flag_rect =
+    {
+        t->pos.x,
+        t->pos.y,
+        t->width,
+        t->height
+    };
+
+    SDL_SetRenderDrawColor(renderer, 235, 146, 52, 255);
+    SDL_RenderFillRect(renderer, &flag_rect);
+  }
+}
+
+void render_flag() {
+  SDL_FRect flag_rect =
+  {
+      flag.x,
+      flag.y,
+      30,
+      30
+  };
+
+  SDL_SetRenderDrawColor(renderer, 235, 146, 52, 255);
+  SDL_RenderFillRect(renderer, &flag_rect);
+}
 
 void render_balls(bl** balls) {
   ball* b;
@@ -411,9 +573,15 @@ void render()
     SDL_SetRenderDrawColor(renderer, 0, 0, 100, 255); //R, G, B, Alpha
     SDL_RenderClear(renderer);
 
+
+
     render_balls(&grid);
     render_balls(&colonists);
+    render_balls(&troops);
+    render_selected_troops();
+    //render_flag();
     render_balls(&map);
+    render_selecting_rect();
 
     sprintf(food_label, "Food: %d", res.food);
     sprintf(colonist_label, "Colonists: %d", res.colonists);
@@ -426,15 +594,6 @@ void render()
 
 }
 
-
-
-
-
-
-/***************************
-* Quits the renderer,
-* SDL and closes the window.
-***************************/
 void destroy_window()
 {
     free(colonist_label);
@@ -450,17 +609,6 @@ void destroy_window()
 }
 
 
-/*********************************
-* Initializes the window,
-* Calls the setup function
-* And starts the game-loop,
-* With the process_input(),
-* update() and render() function.
-* When the game-loop terminates,
-* The window gets destroyed.
-*
-* @param argc, @param args
-*********************************/
 void game() {
   printf("Game is running...\n");
 
