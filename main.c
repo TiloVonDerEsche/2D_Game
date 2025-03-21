@@ -11,6 +11,8 @@ Author: Tilo von Eschwege
 #include <stdio.h>
 
 #include "E:\res\SDL3\include\SDL3\SDL.h"
+#include "E:\res\SDL3_image\include\SDL3_image\SDL_image.h"
+
 #include "helper.h"
 
 #define WINDOW_WIDTH 2560
@@ -53,6 +55,10 @@ int last_frame_time = 0;
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 
+SDL_Texture* brick = NULL;
+SDL_Texture* dirt = NULL;
+SDL_Texture* painting = NULL;
+
 char* food_label;
 char* colonist_label;
 
@@ -80,8 +86,8 @@ uint16_t selected_colonist_num = 0;
 bl** movables[MQ];
 formation army[10];
 
-uint16_t tile_width = 50;
-uint16_t tile_height = 50;
+uint16_t tile_width = 150;
+uint16_t tile_height = 150;
 
 int tiles_x = 0;
 int tiles_y = 0;
@@ -253,10 +259,6 @@ void select_troops(vec2D p0, vec2D p1) {
 
 
 
-/**********************************
-* Creates the window and renderer,
-* While handling potential errors.
-**********************************/
 int initialize_window()
 {
     int initErrC = SDL_Init(SDL_INIT_VIDEO);
@@ -363,9 +365,14 @@ void setup()
   movables[3] = &troops;
 
 
-
+  //labels
   food_label = calloc(6 + sizeof(int),1); //"Food: %d"-> 6 + sizeof(int)
   colonist_label = calloc(11 + sizeof(float),1); //"Colonists: %d" -> 11+ sizeof(int)
+
+  //textures
+  brick = IMG_LoadTexture(renderer, ".\\assets\\tileable_brick_ground_textures\\Ground_04_Nrm.png");
+  dirt = IMG_LoadTexture(renderer, ".\\assets\\tileable_dirt_textures\\Dirt_03.png");
+  painting = IMG_LoadTexture(renderer, ".\\assets\\tileable_dirt_textures\\painting-27.jpg");
 }
 
 void process_input()
@@ -528,6 +535,21 @@ void render_selected_troops() {
   }
 }
 
+void render_painting() {
+  SDL_FRect dst;
+
+  // SDL_GetTextureSize(texture, &dst.w, &dst.h);
+  dst.x = 1000;
+  dst.y = 1000;
+  dst.w = 2000;
+  dst.h = 500;
+
+
+  /* Draw the icon */
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+  SDL_RenderTexture(renderer, painting, NULL, &dst);
+}
+
 void render_flag() {
   SDL_FRect flag_rect =
   {
@@ -539,6 +561,31 @@ void render_flag() {
 
   SDL_SetRenderDrawColor(renderer, 235, 146, 52, 255);
   SDL_RenderFillRect(renderer, &flag_rect);
+}
+
+void render_grid() {
+  bl** balls = &grid;
+  ball* b;
+  for (size_t i = 0; i < (*balls)->num; i++) {
+
+      //printf("rendering ball at (%f,%f)\n",balls[i].pos.x,balls[i].pos.y);
+      b = &(*balls)->arr[i];
+
+      if (b->pos.x >= 0 && b->pos.y >= 0) {
+        SDL_FRect ball_rect =
+        {
+            b->pos.x,
+            b->pos.y,
+            b->width,
+            b->height
+        };
+
+        // SDL_SetRenderDrawColor(renderer, b->color.r, b->color.g, b->color.b, b->color.alpha);
+        // SDL_RenderFillRect(renderer, &ball_rect);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderTexture(renderer, dirt, NULL, &ball_rect);
+      }
+  }
 }
 
 void render_balls(bl** balls) {
@@ -575,13 +622,14 @@ void render()
 
 
 
-    render_balls(&grid);
+    render_grid();
     render_balls(&colonists);
     render_balls(&troops);
     render_selected_troops();
     //render_flag();
     render_balls(&map);
     render_selecting_rect();
+    render_painting();
 
     sprintf(food_label, "Food: %d", res.food);
     sprintf(colonist_label, "Colonists: %d", res.colonists);
