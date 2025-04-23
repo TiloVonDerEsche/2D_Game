@@ -5,13 +5,13 @@ Author: Tilo von Eschwege
 */
 
 #include <stdio.h>
-#include <Math.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "E:\res\SDL3\include\SDL3\SDL.h"
-#include "E:\res\SDL3_image\include\SDL3_image\SDL_image.h"
+#include "/usr/include/SDL3/SDL.h"
+#include "/usr/include/SDL3_image/SDL_image.h"
 
 #include "helper.h"
 
@@ -29,8 +29,8 @@ Author: Tilo von Eschwege
 #define COLONIST_LIMIT 100
 #define TROOP_LIMIT 100
 
-#define TROOP_WIDTH 30
-#define TROOP_HEIGHT 30
+#define TROOP_WIDTH 100
+#define TROOP_HEIGHT 100
 
 
 typedef struct Resources{
@@ -58,6 +58,9 @@ SDL_Renderer* renderer = NULL;
 SDL_Texture* brick = NULL;
 SDL_Texture* dirt = NULL;
 SDL_Texture* painting = NULL;
+
+SDL_Texture* paladin = NULL;
+SDL_Texture* human = NULL;
 
 char* food_label;
 char* colonist_label;
@@ -370,9 +373,12 @@ void setup()
   colonist_label = calloc(11 + sizeof(float),1); //"Colonists: %d" -> 11+ sizeof(int)
 
   //textures
-  brick = IMG_LoadTexture(renderer, ".\\assets\\tileable_brick_ground_textures\\Ground_04_Nrm.png");
-  dirt = IMG_LoadTexture(renderer, ".\\assets\\tileable_dirt_textures\\Dirt_03.png");
-  painting = IMG_LoadTexture(renderer, ".\\assets\\tileable_dirt_textures\\painting-27.jpg");
+  brick = IMG_LoadTexture(renderer, "./assets/tileable_brick_ground_textures/Ground_04_Nrm.png");
+  dirt = IMG_LoadTexture(renderer, "./assets/tileable_dirt_textures/Dirt_03.png");
+  painting = IMG_LoadTexture(renderer, "./assets/tileable_dirt_textures/painting-27.jpg");
+
+  paladin = IMG_LoadTexture(renderer, "./assets/entity/paladin.png");
+  human = IMG_LoadTexture(renderer, "./assets/entity/human.png");
 }
 
 void process_input()
@@ -588,6 +594,28 @@ void render_grid() {
   }
 }
 
+void render_texture(bl** balls, SDL_Texture* texture) {
+  ball* b;
+  for (size_t i = 0; i < (*balls)->num; i++) {
+
+      //printf("rendering ball at (%f,%f)\n",balls[i].pos.x,balls[i].pos.y);
+      b = &(*balls)->arr[i];
+
+      if (b->pos.x >= 0 && b->pos.y >= 0) {
+        SDL_FRect ball_rect =
+        {
+            b->pos.x,
+            b->pos.y,
+            b->width,
+            b->height
+        };
+
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderTexture(renderer, texture, NULL, &ball_rect);
+      }
+  }
+}
+
 void render_balls(bl** balls) {
   ball* b;
   for (size_t i = 0; i < (*balls)->num; i++) {
@@ -622,9 +650,10 @@ void render()
 
 
 
-    render_grid();
-    render_balls(&colonists);
-    render_balls(&troops);
+   
+    render_texture(&grid, dirt);
+    render_texture(&colonists, human);
+    render_texture(&troops, paladin);
     render_selected_troops();
     //render_flag();
     render_balls(&map);

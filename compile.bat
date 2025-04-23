@@ -1,1 +1,1 @@
-gcc -Wall -pedantic main.c -o start -I"E:\res\SDL3\include"  -L"E:\res\SDL3\build" -lSDL3 -I"E:\res\SDL3_image\include"  -L"E:\res\SDL3_image\build" -lSDL3_image 
+gcc -Wall -pedantic main.c -o start -lSDL3 -lSDL3_image -lm

@@ -5,12 +5,12 @@ Author: Tilo von Eschwege
 */
 
 #include <stdio.h>
-#include <Math.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "E:\res\SDL3\include\SDL3\SDL.h"
+#include "/usr/include/SDL3/SDL.h"
 
 
 
