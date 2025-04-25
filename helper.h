@@ -10,7 +10,7 @@ Author: Tilo von Eschwege
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "E:\\res\\SDL3\\include\\SDL3"//"/usr/include/SDL3/SDL.h"
+#include "E:\\res\\SDL3\\include\\SDL3\\SDL.h"//"/usr/include/SDL3/SDL.h"
 
 
 
@@ -34,6 +34,7 @@ typedef struct Ball
     uint16_t height;
 
     color color;
+    SDL_Texture texture;
 } ball;
 
 typedef struct BL {
@@ -47,10 +48,12 @@ typedef struct BL {
 ////////////////////////////////////////////////////////////////
 //----------------------global variables----------------------//
 ////////////////////////////////////////////////////////////////
+color black = {0, 0, 0, 255};
 color red = {255, 0, 0, 255};
 color green = {0, 255, 0, 100};
 color blue = {0, 0, 255, 255};
 color yellow = {255, 255, 0, 255};
+color white = {255, 255, 255, 255};
 
 ////////////////////////////////////////////////////////////////
 //-------------------------Math_Functions---------------------//
