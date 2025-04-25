@@ -1,5 +1,5 @@
 /*
-Version: 0.0.6
+Version: 1.0.0
 C Standard: C17
 Author: Tilo von Eschwege
 */
@@ -10,7 +10,7 @@ Author: Tilo von Eschwege
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "/usr/include/SDL3/SDL.h"
+#include "E:\\res\\SDL3\\include\\SDL3"//"/usr/include/SDL3/SDL.h"
 
 
 
@@ -53,7 +53,7 @@ color blue = {0, 0, 255, 255};
 color yellow = {255, 255, 0, 255};
 
 ////////////////////////////////////////////////////////////////
-//-----------------------Helper_Functions---------------------//
+//-------------------------Math_Functions---------------------//
 ////////////////////////////////////////////////////////////////
 vec2D dvec(vec2D p0, vec2D p1) {
   return (vec2D) {p1.x - p0.x, p1.y - p0.y};
@@ -80,7 +80,35 @@ vec2D normalize(vec2D vec) {
 float dotp(vec2D* vec1, vec2D* vec2) {
   return vec1->x*vec2->x + vec1->y*vec2->y;
 }
+////////////////////////////////////////////////////////////////
+//-----------------------Helper_Functions---------------------//
+////////////////////////////////////////////////////////////////
+void build_path(char *buffer, size_t buffer_size, const char *separator, int count, ...) {
+    va_list args;
+    va_start(args, count);
 
+    // Initialer Punkt
+    snprintf(buffer, buffer_size, ".");
+
+    // Füge jedes Element hinzu
+    for (int i = 0; i < count; i++) {
+        const char *component = va_arg(args, const char *);
+        snprintf(buffer + strlen(buffer), buffer_size - strlen(buffer), "%s%s", separator, component);
+    }
+
+    va_end(args);
+}
+
+//Usage:
+// int main() {
+//     char path[256];
+//     const char *separator = "/";
+//
+//     build_path(path, sizeof(path), separator, 3, "FOLDER1", "FOLDER2", "file.txt");
+//     printf("Pfad: %s\n", path); // Ausgabe: ./FOLDER1/FOLDER2/file.txt
+//
+//     return 0;
+// }
 
 ////////////////////////////////////////////////////////////////
 //-----------------------Ball_Functions-----------------------//
