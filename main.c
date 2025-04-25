@@ -15,9 +15,6 @@ Author: Tilo von Eschwege
 
 #include "helper.h"
 
-#define WINDOW_WIDTH 2560
-#define WINDOW_HEIGHT 1440
-
 #define FPS 144
 #define FRAME_TARGET_TIME (1000/FPS)
 
@@ -26,11 +23,16 @@ Author: Tilo von Eschwege
 
 #define MQ 4
 
-#define COLONIST_LIMIT 100
-#define TROOP_LIMIT 100
+#define WINDOW_WIDTH 2560
+#define WINDOW_HEIGHT 1440
 
 #define TROOP_WIDTH 100
 #define TROOP_HEIGHT 100
+
+#define COLONIST_LIMIT 100
+#define TROOP_LIMIT 100
+
+
 
 
 typedef struct Resources{
@@ -60,6 +62,7 @@ SDL_Texture* dirt = NULL;
 SDL_Texture* painting = NULL;
 
 SDL_Texture* paladin = NULL;
+SDL_Texture* guard = NULL;
 SDL_Texture* human = NULL;
 
 char* food_label;
@@ -89,8 +92,8 @@ uint16_t selected_colonist_num = 0;
 bl** movables[MQ];
 formation army[10];
 
-uint16_t tile_width = 150;
-uint16_t tile_height = 150;
+uint16_t tile_width = 50;
+uint16_t tile_height = 50;
 
 int tiles_x = 0;
 int tiles_y = 0;
@@ -132,6 +135,30 @@ void draw_grid(uint16_t width, uint16_t height) {//width, height of a tile
     }
   }
 
+}
+
+void draw_house(uint16_t x, uint16_t y, uint16_t house_width, uint16_t house_height, SDL_Texture* texture) {//width, height of a tile
+  
+    
+  for (int i = 0; i < 4; i++) {
+    if (i < 2) {
+        for (int w = 0; w < house_width; w++) {
+            printf("Spawning house tile at (%d,%d)\n", w*tile_width, y*tile_height + i*house_height*tile_height);
+    
+                        
+            if (i == -1) {spawn_ball(w*tile_width, y*tile_height + i*house_height*tile_height, tile_width, tile_height, red, &map);}
+            if (i == -1) {spawn_ball(w*tile_width, y*tile_height + i*house_height*tile_height, tile_width, tile_height, blue, &map);}
+        }
+    }
+    if (i > 1) {
+        for (int h = 0; i < house_height; h++) {
+            printf("Spawning house tile at (%d,%d)\n", x*tile_width+ i*house_width*tile_width, h*tile_height);
+
+            if (i == 2) {spawn_ball(x*tile_width+ i*house_width*tile_width, h*tile_height, tile_width, tile_height, yellow, &map);}
+            if (i == 3) {spawn_ball(x*tile_width+ i*house_width*tile_width, h*tile_height, tile_width, tile_height, green, &map);}
+        }    
+    }
+  }
 }
 
 
@@ -359,6 +386,8 @@ void setup()
   map->num = 0;
   map->len = 10;
 
+  draw_house(5, 4, 4, 2, dirt);
+
   spawn_ball(100,100,400,50, blue, &map);
   spawn_ball(500,100,400,50, green, &map);
 
@@ -378,6 +407,7 @@ void setup()
   painting = IMG_LoadTexture(renderer, "./assets/tileable_dirt_textures/painting-27.jpg");
 
   paladin = IMG_LoadTexture(renderer, "./assets/entity/paladin.png");
+  guard = IMG_LoadTexture(renderer, "./assets/entity/vault_guard.png");
   human = IMG_LoadTexture(renderer, "./assets/entity/human.png");
 }
 
@@ -522,25 +552,6 @@ void render_selecting_rect() {
   }
 }
 
-void render_selected_troops() {
-  ball* t;
-  uint16_t j;
-  for(uint16_t i = 0; i < selected_troop_num; i++) {
-    j = selected_troops[i];
-    t = &troops->arr[j];
-    SDL_FRect flag_rect =
-    {
-        t->pos.x,
-        t->pos.y,
-        t->width,
-        t->height
-    };
-
-    SDL_SetRenderDrawColor(renderer, 235, 146, 52, 255);
-    SDL_RenderFillRect(renderer, &flag_rect);
-  }
-}
-
 void render_painting() {
   SDL_FRect dst;
 
@@ -569,28 +580,24 @@ void render_flag() {
   SDL_RenderFillRect(renderer, &flag_rect);
 }
 
-void render_grid() {
-  bl** balls = &grid;
-  ball* b;
-  for (size_t i = 0; i < (*balls)->num; i++) {
 
-      //printf("rendering ball at (%f,%f)\n",balls[i].pos.x,balls[i].pos.y);
-      b = &(*balls)->arr[i];
+void render_selected_troops(SDL_Texture* texture) {
+  ball* t;
+  uint16_t j;
+  for(uint16_t i = 0; i < selected_troop_num; i++) {
+    j = selected_troops[i];
+    t = &troops->arr[j];
+    SDL_FRect rect =
+    {
+        t->pos.x,
+        t->pos.y,
+        t->width,
+        t->height
+    };
 
-      if (b->pos.x >= 0 && b->pos.y >= 0) {
-        SDL_FRect ball_rect =
-        {
-            b->pos.x,
-            b->pos.y,
-            b->width,
-            b->height
-        };
-
-        // SDL_SetRenderDrawColor(renderer, b->color.r, b->color.g, b->color.b, b->color.alpha);
-        // SDL_RenderFillRect(renderer, &ball_rect);
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderTexture(renderer, dirt, NULL, &ball_rect);
-      }
+    SDL_SetRenderDrawColor(renderer, 235, 146, 52, 255);
+    //SDL_RenderFillRect(renderer, &flag_rect);
+    SDL_RenderTexture(renderer, texture, NULL, &rect);
   }
 }
 
@@ -653,12 +660,12 @@ void render()
    
     render_texture(&grid, dirt);
     render_texture(&colonists, human);
-    render_texture(&troops, paladin);
-    render_selected_troops();
+    render_texture(&troops, guard);
+    render_selected_troops(paladin);
     //render_flag();
     render_balls(&map);
     render_selecting_rect();
-    render_painting();
+    //render_painting();
 
     sprintf(food_label, "Food: %d", res.food);
     sprintf(colonist_label, "Colonists: %d", res.colonists);
