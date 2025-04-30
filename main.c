@@ -1,5 +1,5 @@
 /*
-Version: 0.1.5
+Version: 1.0.0
 C Standard: C17
 Author: Tilo von Eschwege
 */
@@ -10,8 +10,8 @@ Author: Tilo von Eschwege
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "/usr/include/SDL3/SDL.h"
-#include "/usr/include/SDL3_image/SDL_image.h"
+#include "/usr/include/SDL3/SDL.h"//"E:\\res\\SDL3\\include\\SDL3\\SDL.h"
+#include "/usr/include/SDL3_image/SDL_image.h"//"E:\\res\\SDL3_image\\include\\SDL3_image\\SDL_image.h"
 
 #include "helper.h"
 
@@ -26,8 +26,11 @@ Author: Tilo von Eschwege
 #define WINDOW_WIDTH 2560
 #define WINDOW_HEIGHT 1440
 
-#define TROOP_WIDTH 100
-#define TROOP_HEIGHT 100
+#define TROOP_WIDTH 50
+#define TROOP_HEIGHT 50
+
+#define COLONIST_WIDTH 50
+#define COLONIST_HEIGHT 50
 
 #define COLONIST_LIMIT 100
 #define TROOP_LIMIT 100
@@ -45,6 +48,8 @@ typedef struct Formation {
   uint16_t num;
   uint16_t troops[TROOP_LIMIT];
 } formation;
+
+char* separator = "/"; // "/"
 
 resources res = {0,0};
 
@@ -88,6 +93,7 @@ uint16_t* selected_colonists;
 uint16_t selected_troop_num = 0;
 uint16_t selected_colonist_num = 0;
 
+uint8_t formation_selector = 0;
 
 bl** movables[MQ];
 formation army[10];
@@ -131,34 +137,29 @@ void draw_grid(uint16_t width, uint16_t height) {//width, height of a tile
       if ((x % 2 + y % 2) % 2) {c=ca;} else {c=cb;}
       spawn_ball(x*width, y*height, width, height, c, &grid);
 
-      //printf("grid->num: %lld\n", grid->num);
+      //printf("grid->num: %ld\n", grid->num);
     }
   }
 
 }
 
-void draw_house(uint16_t x, uint16_t y, uint16_t house_width, uint16_t house_height, SDL_Texture* texture) {//width, height of a tile
-  
-    
-  for (int i = 0; i < 4; i++) {
-    if (i < 2) {
-        for (int w = 0; w < house_width; w++) {
-            printf("Spawning house tile at (%d,%d)\n", w*tile_width, y*tile_height + i*house_height*tile_height);
-    
-                        
-            if (i == -1) {spawn_ball(w*tile_width, y*tile_height + i*house_height*tile_height, tile_width, tile_height, red, &map);}
-            if (i == -1) {spawn_ball(w*tile_width, y*tile_height + i*house_height*tile_height, tile_width, tile_height, blue, &map);}
-        }
-    }
-    if (i > 1) {
-        for (int h = 0; i < house_height; h++) {
-            printf("Spawning house tile at (%d,%d)\n", x*tile_width+ i*house_width*tile_width, h*tile_height);
+void draw_house(uint16_t x, uint16_t y, uint16_t house_width, uint16_t house_height) {//width, height of a tile
+        for (int w = 0; w < house_width + 1; w++) {
+            //printf("Spawning house tile at (%d,%d)\n",x*tile_width + w*tile_width, y*tile_height + house_height*tile_height);
 
-            if (i == 2) {spawn_ball(x*tile_width+ i*house_width*tile_width, h*tile_height, tile_width, tile_height, yellow, &map);}
-            if (i == 3) {spawn_ball(x*tile_width+ i*house_width*tile_width, h*tile_height, tile_width, tile_height, green, &map);}
-        }    
-    }
-  }
+            spawn_ball(x*tile_width + w*tile_width, y*tile_height, tile_width, tile_height, red, &map);
+            spawn_ball(x*tile_width + w*tile_width, y*tile_height + house_height*tile_height, tile_width, tile_height, black, &map);
+        }
+
+
+        for (int h = 0; h < house_height + 1; h++) {
+            //printf("Spawning house tile at (%d,%d)\n", x*tile_width+ house_width*tile_width, h*tile_height);
+
+            spawn_ball(x*tile_width, y*tile_width + h*tile_height, tile_width, tile_height, yellow, &map);
+            spawn_ball(x*tile_width + house_width*tile_width, y*tile_width + h*tile_height, tile_width, tile_height, green, &map);
+        }
+
+
 }
 
 
@@ -243,6 +244,42 @@ void move_map(int dx, int dy) {
 
 }
 
+////////////////////////////////////////////
+//--------------Troop Movement------------//
+////////////////////////////////////////////
+//fills selected_troops[] with the indices of the troops in the selecting rect
+void select_troops(vec2D p0, vec2D p1) {
+  selected_troop_num = 0;
+
+  ball* t;
+  for(int i = 0; i < troops->num; i++) {
+    t = &troops->arr[i];
+    //t in selecting rect?
+    if ((t->pos.x < p1.x && t->pos.x > p0.x) || (t->pos.x > p1.x && t->pos.x < p0.x)) {
+      if((t->pos.y < p1.y && t->pos.y > p0.y) || (t->pos.y > p1.y && t->pos.y < p0.y)) {
+        if (selected_troop_num < TROOP_LIMIT) {
+          selected_troops[selected_troop_num] = i;
+          selected_troop_num++;
+        }
+      }
+    }
+  }
+}
+
+
+void set_flag(vec2D flag) {
+  formation squat = army[formation_selector];
+  squat.flags[squat.num] = flag;
+  squat.num++;
+
+  //if (last_teammate at flag)
+  //  remove flag
+
+  //coherence?
+  //should teammates wait at the subflag until the last m8 of the formation arrived?
+
+}
+
 
 void move_colonists(){
   return;
@@ -267,25 +304,6 @@ void move_troops(float troop_velo){
   }
 }
 
-
-
-void select_troops(vec2D p0, vec2D p1) {
-  selected_troop_num = 0;
-
-  ball* t;
-  for(int i = 0; i < troops->num; i++) {
-    t = &troops->arr[i];
-    //t in selecting rect?
-    if ((t->pos.x < p1.x && t->pos.x > p0.x) || (t->pos.x > p1.x && t->pos.x < p0.x)) {
-      if((t->pos.y < p1.y && t->pos.y > p0.y) || (t->pos.y > p1.y && t->pos.y < p0.y)) {
-        if (selected_troop_num < TROOP_LIMIT) {
-          selected_troops[selected_troop_num] = i;
-          selected_troop_num++;
-        }
-      }
-    }
-  }
-}
 
 
 
@@ -345,22 +363,23 @@ void setup()
   flag.x = WINDOW_WIDTH/2;
   flag.y = WINDOW_HEIGHT/2 - 200;
 
+  //----------------------------------------------BL initialization----------------------------------------------------//
   grid = malloc(sizeof(bl) + 5 * sizeof(ball));
   grid->num = 1;
   grid->len = 5;
 
   draw_grid(tile_width,tile_height);
   //printf("Last tile: (%f, %f)\n", grid->arr[grid->num - 1].pos.x, grid->arr[grid->num - 1].pos.y);
-  printf("Setup function: grid->num: %lld\n", grid->num);
+  printf("Setup function: grid->num: %ld\n", grid->num);
 
 
   colonists = malloc(sizeof(bl) + 10 * sizeof(ball));  // 20 balls
   colonists->num = 0;
   colonists->len = 10;
 
-  spawn_ball(500,500, 10, 10, red, &colonists);
-  spawn_ball(520,500, 10, 10, red, &colonists);
-  spawn_ball(540,500, 10, 10, red, &colonists);
+  spawn_ball(500,500, COLONIST_WIDTH, COLONIST_HEIGHT, red, &colonists);
+  spawn_ball(550,500, COLONIST_WIDTH, COLONIST_HEIGHT, red, &colonists);
+  spawn_ball(600,500, COLONIST_WIDTH, COLONIST_HEIGHT, red, &colonists);
 
   res.colonists = 3;
 
@@ -368,11 +387,11 @@ void setup()
   troops->num = 0;
   troops->len = 10;
 
-  spawn_ball(WINDOW_WIDTH/2, WINDOW_HEIGHT/2,30,30, red, &troops);
-  spawn_ball(WINDOW_WIDTH/2 + 250, WINDOW_HEIGHT/2,30,30, red, &troops);
-  spawn_ball(WINDOW_WIDTH/2 + 500, WINDOW_HEIGHT/2,30,30, red, &troops);
-  spawn_ball(WINDOW_WIDTH/2 + 750, WINDOW_HEIGHT/2,30,30, red, &troops);
-  spawn_ball(WINDOW_WIDTH/2 + 1000, WINDOW_HEIGHT/2,30,30, red, &troops);
+  spawn_ball(WINDOW_WIDTH/2, WINDOW_HEIGHT/2, TROOP_WIDTH, TROOP_HEIGHT, red, &troops);
+  spawn_ball(WINDOW_WIDTH/2 + 250, WINDOW_HEIGHT/2,TROOP_WIDTH, TROOP_HEIGHT, red, &troops);
+  spawn_ball(WINDOW_WIDTH/2 + 500, WINDOW_HEIGHT/2,TROOP_WIDTH, TROOP_HEIGHT, red, &troops);
+  spawn_ball(WINDOW_WIDTH/2 + 750, WINDOW_HEIGHT/2,TROOP_WIDTH, TROOP_HEIGHT, red, &troops);
+  spawn_ball(WINDOW_WIDTH/2 + 1000, WINDOW_HEIGHT/2,TROOP_WIDTH, TROOP_HEIGHT, red, &troops);
 
   selected_colonists = malloc(COLONIST_LIMIT * sizeof(uint16_t));
   selected_troops = malloc(TROOP_LIMIT * sizeof(uint16_t));
@@ -386,29 +405,44 @@ void setup()
   map->num = 0;
   map->len = 10;
 
-  draw_house(5, 4, 4, 2, dirt);
+  draw_house(5, 4, 4, 3);
+  draw_house(16, 14, 8, 6);
 
-  spawn_ball(100,100,400,50, blue, &map);
-  spawn_ball(500,100,400,50, green, &map);
-
+  //fill movables with all BLs that should move after pressing WASD
   movables[0] = &grid;
   movables[1] = &colonists;
   movables[2] = &map;
   movables[3] = &troops;
 
 
-  //labels
+
+  //----------------------------------------------labels----------------------------------------------------//
   food_label = calloc(6 + sizeof(int),1); //"Food: %d"-> 6 + sizeof(int)
   colonist_label = calloc(11 + sizeof(float),1); //"Colonists: %d" -> 11+ sizeof(int)
 
-  //textures
-  brick = IMG_LoadTexture(renderer, "./assets/tileable_brick_ground_textures/Ground_04_Nrm.png");
-  dirt = IMG_LoadTexture(renderer, "./assets/tileable_dirt_textures/Dirt_03.png");
-  painting = IMG_LoadTexture(renderer, "./assets/tileable_dirt_textures/painting-27.jpg");
 
-  paladin = IMG_LoadTexture(renderer, "./assets/entity/paladin.png");
-  guard = IMG_LoadTexture(renderer, "./assets/entity/vault_guard.png");
-  human = IMG_LoadTexture(renderer, "./assets/entity/human.png");
+
+  //---------------------------------------------textures----------------------------------------------------//
+  char path[512];
+
+  build_path(path, sizeof(path), separator, 3, "assets", "tileable_brick_ground_textures", "Ground_03.png");
+  brick = IMG_LoadTexture(renderer, path);
+
+  build_path(path, sizeof(path), separator, 3, "assets", "tileable_dirt_textures", "Dirt_03.png");
+  dirt = IMG_LoadTexture(renderer, path); //".\\assets\\tileable_dirt_textures\\Dirt_03.png"
+
+  build_path(path, sizeof(path), separator, 3, "assets", "tileable_dirt_textures", "painting-27.jpg");
+  painting = IMG_LoadTexture(renderer, path);
+
+  build_path(path, sizeof(path), separator, 3, "assets", "entity", "paladin.png");
+  paladin = IMG_LoadTexture(renderer, path);
+
+  build_path(path, sizeof(path), separator, 3, "assets", "entity", "vault_guard.png");
+  guard = IMG_LoadTexture(renderer, path);
+
+  build_path(path, sizeof(path), separator, 3, "assets", "entity", "human.png");
+  human = IMG_LoadTexture(renderer, path);
+
 }
 
 void process_input()
@@ -423,6 +457,18 @@ void process_input()
             break;
 
         case SDL_EVENT_KEY_DOWN: //keypress
+            // if (event.key.mod & SDL_KMOD_LCTRL) {
+            //   printf("Holding LCTRL!\n");
+            //   if((48 <= event.key.key) && (event.key.key <= 57)) {
+            //     printf("LCTRL + Key %d pressed!\n",event.key.key-48);
+            //     uint8_t key_n = event.key.key-48;
+            //
+            //     for (size_t i = 0; i < selected_troop_num; i++) {
+            //         army[key_n].troops[i] = selected_troops[i];
+            //     }
+            //   }
+            //   break;
+            // }
 
             switch(event.key.key)
             {
@@ -453,8 +499,21 @@ void process_input()
                 break;
               default:
                 //keys 0 - 9
-                if((48 <= event.key.key) && (event.key.key <= 57)) {
+                if (event.key.mod & SDL_KMOD_LCTRL) {
+                  if((48 <= event.key.key) && (event.key.key <= 57)) {
+                    printf("LCTRL + Key %d pressed!\n",event.key.key-48);
+                    uint8_t key_n = event.key.key-48;
+
+                    for (size_t i = 0; i < selected_troop_num; i++) {
+                        army[key_n].troops[i] = selected_troops[i];
+                    }
+                  }
+                }
+                else if((48 <= event.key.key) && (event.key.key <= 57)) {
                   printf("Key %d\n",event.key.key-48);
+                  uint8_t key_n = event.key.key-48;
+                  formation_selector = key_n;
+                  selected_troops = army[key_n].troops;
                 }
 
             }
@@ -491,7 +550,7 @@ void process_input()
                 follow_flag = 0;
                 break;
               case 2:
-                spawn_ball(mouse.x,mouse.y, 10, 10, red, &colonists);
+                spawn_ball(mouse.x,mouse.y, COLONIST_WIDTH, COLONIST_HEIGHT, red, &colonists);
                 res.colonists += 1;
                 break;
               case 3:
@@ -657,13 +716,15 @@ void render()
 
 
 
-   
-    render_texture(&grid, dirt);
+
+    //render_texture(&grid, dirt);
+    render_balls(&grid);
     render_texture(&colonists, human);
     render_texture(&troops, guard);
     render_selected_troops(paladin);
-    //render_flag();
-    render_balls(&map);
+    render_flag();
+    //render_balls(&map);
+    render_texture(&map, brick);
     render_selecting_rect();
     //render_painting();
 
@@ -685,6 +746,9 @@ void destroy_window()
 
     free(grid);
     free(colonists);
+    free(troops);
+    free(selected_colonists);
+    free(selected_troops);
     free(map);
 
     SDL_DestroyRenderer(renderer);
@@ -715,8 +779,3 @@ int main(int argc, char* args[])
     game();
     return 0;
 }
-
-/*
-* The click of the mouse should spawn a ball at that position.
-* That way the user doesn't need to input the ball_num
-*/
