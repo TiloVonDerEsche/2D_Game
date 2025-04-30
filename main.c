@@ -9,9 +9,10 @@ Author: Tilo von Eschwege
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h> //memcpy
 
-#include "E:\\res\\SDL3\\include\\SDL3\\SDL.h"//"/usr/include/SDL3/SDL.h"
-#include "E:\\res\\SDL3_image\\include\\SDL3_image\\SDL_image.h"//"/usr/include/SDL3_image/SDL_image.h"
+#include "E:\\res\\SDL3\\include\\SDL3\\SDL.h" //"/usr/include/SDL3/SDL.h"
+#include "E:\\res\\SDL3_image\\include\\SDL3_image\\SDL_image.h" //"/usr/include/SDL3_image/SDL_image.h"
 
 #include "helper.h"
 
@@ -35,6 +36,8 @@ Author: Tilo von Eschwege
 #define COLONIST_LIMIT 100
 #define TROOP_LIMIT 100
 
+#define FLAG_LIMIT 20
+
 
 
 
@@ -44,7 +47,9 @@ typedef struct Resources{
 } resources;
 
 typedef struct Formation {
-  vec2D flags[20];
+  uint16_t curr_flag;
+  uint16_t last_flag;
+  vec2D flags[FLAG_LIMIT];
   uint16_t num;
   uint16_t troops[TROOP_LIMIT];
 } formation;
@@ -93,6 +98,7 @@ uint16_t* selected_colonists;
 uint16_t selected_troop_num = 0;
 uint16_t selected_colonist_num = 0;
 
+uint8_t formation_selector = 0;
 
 bl** movables[MQ];
 formation army[10];
@@ -136,7 +142,7 @@ void draw_grid(uint16_t width, uint16_t height) {//width, height of a tile
       if ((x % 2 + y % 2) % 2) {c=ca;} else {c=cb;}
       spawn_ball(x*width, y*height, width, height, c, &grid);
 
-      //printf("grid->num: %lld\n", grid->num);
+      //printf("grid->num: %ld\n", grid->num);
     }
   }
 
@@ -243,32 +249,10 @@ void move_map(int dx, int dy) {
 
 }
 
-
-void move_colonists(){
-  return;
-}
-
-void move_troops(float troop_velo){
-  if (follow_flag) {
-    ball* t;
-    vec2D fv;
-    vec2D fvn;
-
-    uint16_t j;
-    for(size_t i = 0; i < selected_troop_num; i++) {
-      j = selected_troops[i];
-      t = &troops->arr[j];
-      fv = dvec(t->pos,flag); //vector from t to flag
-      fvn = normalize(fv);
-
-      t->pos.x += troop_velo * fvn.x;
-      t->pos.y += troop_velo * fvn.y;
-    }
-  }
-}
-
-
-
+////////////////////////////////////////////
+//--------------Troop Movement------------//
+////////////////////////////////////////////
+//fills selected_troops[] with the indices of the troops in the selecting rect
 void select_troops(vec2D p0, vec2D p1) {
   selected_troop_num = 0;
 
@@ -278,15 +262,91 @@ void select_troops(vec2D p0, vec2D p1) {
     //t in selecting rect?
     if ((t->pos.x < p1.x && t->pos.x > p0.x) || (t->pos.x > p1.x && t->pos.x < p0.x)) {
       if((t->pos.y < p1.y && t->pos.y > p0.y) || (t->pos.y > p1.y && t->pos.y < p0.y)) {
-        if (selected_troop_num < TROOP_LIMIT) {
-          selected_troops[selected_troop_num] = i;
-          selected_troop_num++;
-        }
+        selected_troops[selected_troop_num] = i;
+        selected_troop_num++;
       }
     }
   }
 }
 
+void reset_flags(uint8_t squad_num) {
+  vec2D origin = {0,0};
+  for(uint8_t i = 0; i < FLAG_LIMIT; i++) {
+    army[squad_num].flags[i] = origin;
+  }
+}
+
+void set_flag(vec2D flag) {
+  formation* squat = &army[formation_selector];
+  printf("Setting flag (%d,%d)\n", formation_selector, squat->last_flag);
+
+  squat->flags[squat->last_flag] = flag;
+  squat->last_flag++;
+  if (squat->last_flag >= FLAG_LIMIT) {
+    squat->last_flag = 0;
+    reset_flags(formation_selector);
+  }
+
+  //if (last_teammate at flag)
+  //  remove flag
+
+  //coherence?
+  //should teammates wait at the subflag until the last m8 of the formation arrived?
+
+}
+
+
+void move_colonists(){
+  return;
+}
+
+void move_troop(uint16_t selected_troop, float troop_velo, vec2D flag){
+    ball* t;
+    vec2D fv;
+    vec2D fvn;
+
+    t = &troops->arr[selected_troop];
+    fv = dvec(t->pos,flag); //vector from t to flag
+    fvn = normalize(fv);
+
+    t->pos.x += troop_velo * fvn.x;
+    t->pos.y += troop_velo * fvn.y;
+}
+
+void move_army(float troop_velo){
+  formation* squat;
+  vec2D flag;
+  ball* t;
+
+  for (uint8_t i = 0; i < 10; i++) {
+    squat = &army[i];
+    flag = squat->flags[squat->curr_flag];
+
+    for (uint8_t j = 0; j < squat->num; j++) {
+      move_troop(squat->troops[j], 1, flag);
+      t = &troops->arr[squat->troops[j]];
+
+      if (i == 0) {printf("Distance to flag: %f\n",magnitude(dvec(t->pos, flag)));}
+      if (magnitude(dvec(t->pos, flag)) < 1) {
+        puts("YES!\n\n\n");
+        squat->curr_flag += 1;
+        if (squat->curr_flag >= FLAG_LIMIT) {
+          squat->curr_flag = 0;
+          reset_flags(i);
+        }
+
+      }
+    }
+  }
+}
+
+
+
+void initialize_formations() {
+  for (uint8_t i = 0; i < 10; i++) {
+    army[i].num = 0;
+  }
+}
 
 
 int initialize_window()
@@ -336,14 +396,6 @@ int initialize_window()
 
 void setup()
 {
-  // vec2D p0 = {1,5};
-  // vec2D p1 = {2,-1};
-  //
-  // vec2D p2 = dvec(p0, p1);
-  //
-  // printf("(%d, %d)\n",p2.x, p2.y);
-  flag.x = WINDOW_WIDTH/2;
-  flag.y = WINDOW_HEIGHT/2 - 200;
 
   //----------------------------------------------BL initialization----------------------------------------------------//
   grid = malloc(sizeof(bl) + 5 * sizeof(ball));
@@ -352,7 +404,7 @@ void setup()
 
   draw_grid(tile_width,tile_height);
   //printf("Last tile: (%f, %f)\n", grid->arr[grid->num - 1].pos.x, grid->arr[grid->num - 1].pos.y);
-  printf("Setup function: grid->num: %lld\n", grid->num);
+  //printf("Setup function: grid->num: %ld\n", grid->num);
 
 
   colonists = malloc(sizeof(bl) + 10 * sizeof(ball));  // 20 balls
@@ -378,10 +430,17 @@ void setup()
   selected_colonists = malloc(COLONIST_LIMIT * sizeof(uint16_t));
   selected_troops = malloc(TROOP_LIMIT * sizeof(uint16_t));
 
-  selected_troops[0] = 0;
-  selected_troops[1] = 1;
+  selected_troop_num = 0;
 
-  selected_troop_num = 2;
+  initialize_formations();
+
+  // vec2D fp = {500,500};
+  //
+  // for (uint8_t i = 0; i < 10; i++) {
+  //   army[i].flags[0] = fp;
+  //   army[i].last_flag += 1;
+  //   fp.x += 100;
+  // }
 
   map = malloc(sizeof(bl) + 10 * sizeof(ball));
   map->num = 0;
@@ -438,8 +497,7 @@ void process_input()
             game_is_running = FALSE;
             break;
 
-        case SDL_EVENT_KEY_DOWN: //keypress
-
+        case SDL_EVENT_KEY_DOWN:
             switch(event.key.key)
             {
               case SDLK_ESCAPE:
@@ -468,9 +526,28 @@ void process_input()
                 move_map(10, 0);
                 break;
               default:
-                //keys 0 - 9
-                if((48 <= event.key.key) && (event.key.key <= 57)) {
-                  printf("Key %d\n",event.key.key-48);
+                //formation setting w holding LCTRL + keys 0-9
+                if (event.key.mod & SDL_KMOD_LCTRL) {
+                  if((48 <= event.key.key) && (event.key.key <= 57)) {
+                    //printf("LCTRL + Key %d pressed!\n",event.key.key-48);
+                    if (selected_troop_num > 0) {
+                      uint8_t key_n = event.key.key-48;
+                      memcpy(army[key_n].troops, selected_troops, selected_troop_num * sizeof(uint16_t));
+                      army[key_n].num = selected_troop_num;
+                      formation_selector = key_n;
+                    }
+                  }
+                }
+                //formation selection w keys 0-9
+                else if((48 <= event.key.key) && (event.key.key <= 57)) {
+                  printf("Key %d!!!\n",event.key.key-48);
+                  uint8_t key_n = event.key.key-48;
+                  formation_selector = key_n;
+
+
+                  memcpy(selected_troops, army[key_n].troops, army[key_n].num * sizeof(uint16_t));
+                  selected_troop_num = army[key_n].num;
+                  follow_flag = 0;
                 }
 
             }
@@ -511,10 +588,9 @@ void process_input()
                 res.colonists += 1;
                 break;
               case 3:
+                puts("RMB! set_flag trig\n");
+                set_flag(mouse);
                 follow_flag = 1;
-                flag.x = mouse.x;
-                flag.y = mouse.y;
-
                 break;
             }
             break;
@@ -535,7 +611,7 @@ void update()
     move_colonists();
 
     //slerping all selected troops to the set flag (with RMB)
-    move_troops(1);
+    move_army(1);
     //printf("drag_start=(%f,%f)\n",drag_start.x,drag_start.y);
 
 
@@ -583,17 +659,28 @@ void render_painting() {
   SDL_RenderTexture(renderer, painting, NULL, &dst);
 }
 
-void render_flag() {
-  SDL_FRect flag_rect =
-  {
-      flag.x,
-      flag.y,
-      30,
-      30
-  };
+void render_flags() {
+  vec2D flag;
 
-  SDL_SetRenderDrawColor(renderer, 235, 146, 52, 255);
-  SDL_RenderFillRect(renderer, &flag_rect);
+  for (uint8_t i = 0; i < 10; i++) {
+    //printf("j = %d; j < %d\n" ,army[i].curr_flag ,army[i].last_flag);
+    for (uint8_t j = army[i].curr_flag; j < army[i].last_flag; j++) {
+      //printf("Rendering flag: (%d,%d)",i,j);
+      flag = army[i].flags[j];
+
+      SDL_FRect flag_rect =
+      {
+          flag.x,
+          flag.y,
+          30,
+          30
+      };
+
+      SDL_SetRenderDrawColor(renderer, 235, 146, 52, 255);
+      SDL_RenderFillRect(renderer, &flag_rect);
+    }
+  }
+
 }
 
 
@@ -679,7 +766,7 @@ void render()
     render_texture(&colonists, human);
     render_texture(&troops, guard);
     render_selected_troops(paladin);
-    //render_flag();
+    render_flags();
     //render_balls(&map);
     render_texture(&map, brick);
     render_selecting_rect();
@@ -703,6 +790,9 @@ void destroy_window()
 
     free(grid);
     free(colonists);
+    free(troops);
+    free(selected_colonists);
+    free(selected_troops);
     free(map);
 
     SDL_DestroyRenderer(renderer);
@@ -733,8 +823,3 @@ int main(int argc, char* args[])
     game();
     return 0;
 }
-
-/*
-* The click of the mouse should spawn a ball at that position.
-* That way the user doesn't need to input the ball_num
-*/
