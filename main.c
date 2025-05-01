@@ -36,6 +36,9 @@ Author: Tilo von Eschwege
 #define COLONIST_LIMIT 100
 #define TROOP_LIMIT 100
 
+#define FLAG_WIDTH 30
+#define FLAG_HEIGHT 30
+
 #define FLAG_LIMIT 20
 
 
@@ -70,10 +73,13 @@ SDL_Renderer* renderer = NULL;
 SDL_Texture* brick = NULL;
 SDL_Texture* dirt = NULL;
 SDL_Texture* painting = NULL;
+SDL_Texture* flag_tex = NULL;
 
 SDL_Texture* paladin = NULL;
 SDL_Texture* guard = NULL;
 SDL_Texture* human = NULL;
+
+
 
 char* food_label;
 char* colonist_label;
@@ -281,11 +287,7 @@ void set_flag(vec2D flag) {
   printf("Setting flag (%d,%d)\n", formation_selector, squat->last_flag);
 
   squat->flags[squat->last_flag] = flag;
-  squat->last_flag++;
-  if (squat->last_flag >= FLAG_LIMIT) {
-    squat->last_flag = 0;
-    reset_flags(formation_selector);
-  }
+  squat->last_flag = (squat->last_flag + 1) % FLAG_LIMIT;
 
   //if (last_teammate at flag)
   //  remove flag
@@ -317,6 +319,7 @@ void move_army(float troop_velo){
   formation* squat;
   vec2D flag;
   ball* t;
+  vec2D origin = {0,0};
 
   for (uint8_t i = 0; i < 10; i++) {
     squat = &army[i];
@@ -326,15 +329,10 @@ void move_army(float troop_velo){
       move_troop(squat->troops[j], 1, flag);
       t = &troops->arr[squat->troops[j]];
 
-      if (i == 0) {printf("Distance to flag: %f\n",magnitude(dvec(t->pos, flag)));}
+      //if (i == 0) {printf("Distance to flag: %f\n",magnitude(dvec(t->pos, flag)));}
       if (magnitude(dvec(t->pos, flag)) < 1) {
-        puts("YES!\n\n\n");
-        squat->curr_flag += 1;
-        if (squat->curr_flag >= FLAG_LIMIT) {
-          squat->curr_flag = 0;
-          reset_flags(i);
-        }
-
+        squat->flags[squat->curr_flag] = origin;
+        squat->curr_flag = (squat->curr_flag + 1) % FLAG_LIMIT;
       }
     }
   }
@@ -474,6 +472,9 @@ void setup()
 
   build_path(path, sizeof(path), separator, 3, "assets", "tileable_dirt_textures", "painting-27.jpg");
   painting = IMG_LoadTexture(renderer, path);
+
+  build_path(path, sizeof(path), separator, 3, "assets", "medieval_signs", "torch.png");
+  flag_tex = IMG_LoadTexture(renderer, path);
 
   build_path(path, sizeof(path), separator, 3, "assets", "entity", "paladin.png");
   paladin = IMG_LoadTexture(renderer, path);
@@ -659,7 +660,31 @@ void render_painting() {
   SDL_RenderTexture(renderer, painting, NULL, &dst);
 }
 
-void render_flags() {
+// void render_flags() {
+//   vec2D flag;
+//
+//   for (uint8_t i = 0; i < 10; i++) {
+//     //printf("j = %d; j < %d\n" ,army[i].curr_flag ,army[i].last_flag);
+//     for (uint8_t j = army[i].curr_flag; j < army[i].last_flag; j++) {
+//       //printf("Rendering flag: (%d,%d)",i,j);
+//       flag = army[i].flags[j];
+//
+//       SDL_FRect flag_rect =
+//       {
+//           flag.x,
+//           flag.y,
+//           30,
+//           30
+//       };
+//
+//       SDL_SetRenderDrawColor(renderer, 235, 146, 52, 255);
+//       SDL_RenderFillRect(renderer, &flag_rect);
+//     }
+//   }
+//
+// }
+
+void render_flags(SDL_Texture* texture) {
   vec2D flag;
 
   for (uint8_t i = 0; i < 10; i++) {
@@ -668,16 +693,16 @@ void render_flags() {
       //printf("Rendering flag: (%d,%d)",i,j);
       flag = army[i].flags[j];
 
-      SDL_FRect flag_rect =
+      SDL_FRect rect =
       {
           flag.x,
           flag.y,
-          30,
-          30
+          FLAG_WIDTH,
+          FLAG_HEIGHT
       };
 
       SDL_SetRenderDrawColor(renderer, 235, 146, 52, 255);
-      SDL_RenderFillRect(renderer, &flag_rect);
+      SDL_RenderTexture(renderer, texture, NULL, &rect);
     }
   }
 
@@ -766,7 +791,7 @@ void render()
     render_texture(&colonists, human);
     render_texture(&troops, guard);
     render_selected_troops(paladin);
-    render_flags();
+    render_flags(flag_tex);
     //render_balls(&map);
     render_texture(&map, brick);
     render_selecting_rect();
