@@ -6,8 +6,6 @@ insert the ball->texture attr into SDL_RenderTexture
 ->change all occurences of render_texture / render_balls to this fn, change the corrosponding 
 	spawn_ball call, to include the texture
 
--> draw_house texture param
-
 Random Movement for the colonists
  -> Later pathfinding to shops / workhouses
 
