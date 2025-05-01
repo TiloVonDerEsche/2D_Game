@@ -34,7 +34,7 @@ typedef struct Ball
     uint16_t height;
 
     color color;
-    SDL_Texture texture;
+    SDL_Texture* texture;
 } ball;
 
 typedef struct BL {
@@ -48,6 +48,7 @@ typedef struct BL {
 ////////////////////////////////////////////////////////////////
 //----------------------global variables----------------------//
 ////////////////////////////////////////////////////////////////
+color no_color = {0,0,0,0};
 color black = {0, 0, 0, 255};
 color red = {255, 0, 0, 255};
 color green = {0, 255, 0, 100};
@@ -121,7 +122,7 @@ void init_ball(ball* b, uint16_t width, uint16_t height) {
   b->height = height;
 }
 
-void spawn_ball(int x, int y, uint16_t width, uint16_t height, color color, bl** balls) {
+void spawn_ball(int x, int y, uint16_t width, uint16_t height, bl** balls, color color, SDL_Texture* texture) {
   if ((*balls)->len <= (*balls)->num + 1) {
     (*balls)->len *= 2;
 
@@ -139,6 +140,7 @@ void spawn_ball(int x, int y, uint16_t width, uint16_t height, color color, bl**
 
   b->pos = (vec2D){x, y};
   b->color = color;
+  b->texture = texture;
   //printf("Spawning Ball at (%d, %d), with index: %d\n",x, y, ball_num);
 
   init_ball(b, width, height);

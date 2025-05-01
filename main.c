@@ -22,7 +22,7 @@ Author: Tilo von Eschwege
 #define TRUE 1
 #define FALSE 0
 
-#define MQ 4
+#define MQ 5
 
 #define WINDOW_WIDTH 2560
 #define WINDOW_HEIGHT 1440
@@ -39,7 +39,7 @@ Author: Tilo von Eschwege
 #define FLAG_WIDTH 30
 #define FLAG_HEIGHT 30
 
-#define FLAG_LIMIT 20
+#define FLAG_LIMIT 200
 
 
 
@@ -97,6 +97,7 @@ bl* grid;
 bl* colonists;
 bl* troops;
 bl* map;
+bl* collision_map;
 
 uint16_t* selected_troops;
 uint16_t* selected_colonists;
@@ -146,7 +147,7 @@ void draw_grid(uint16_t width, uint16_t height) {//width, height of a tile
   for (size_t y = 0; y < tiles_y; y++) {
     for (size_t x = 0; x < tiles_x; x++) {
       if ((x % 2 + y % 2) % 2) {c=ca;} else {c=cb;}
-      spawn_ball(x*width, y*height, width, height, c, &grid);
+      spawn_ball(x*width, y*height, width, height, &grid, c, NULL);
 
       //printf("grid->num: %ld\n", grid->num);
     }
@@ -154,21 +155,68 @@ void draw_grid(uint16_t width, uint16_t height) {//width, height of a tile
 
 }
 
-void draw_house(uint16_t x, uint16_t y, uint16_t house_width, uint16_t house_height) {//width, height of a tile
+// void draw_grid(uint16_t width, uint16_t height) {//width, height of a tile
+//   tiles_x = ((WINDOW_WIDTH / width) + 1);
+//   tiles_y = ((WINDOW_HEIGHT / height) + 1);
+//
+//   grid_width = tiles_x * width;
+//   grid_height = tiles_y * height;
+//
+//   for (size_t y = 0; y < tiles_y; y++) {
+//     for (size_t x = 0; x < tiles_x; x++) {
+//       spawn_ball(x*width, y*height, width, height, &grid, no_color, dirt);
+//       //printf("grid->num: %ld\n", grid->num);
+//     }
+//   }
+//
+// }
+
+//top left corner of house at tile (x,y), draw_house(1,1) margin of 1 tile to border, door_pos counts from the top left wrapping to the right
+void draw_house(uint16_t x, uint16_t y, uint16_t house_width, uint16_t house_height, uint16_t door_pos, SDL_Texture* tex) {//width, height of a tile
+        uint16_t tx = x*tile_width;
+        uint16_t ty = y*tile_height;
+
+        //top & bottom wall
         for (int w = 0; w < house_width + 1; w++) {
-            //printf("Spawning house tile at (%d,%d)\n",x*tile_width + w*tile_width, y*tile_height + house_height*tile_height);
-
-            spawn_ball(x*tile_width + w*tile_width, y*tile_height, tile_width, tile_height, red, &map);
-            spawn_ball(x*tile_width + w*tile_width, y*tile_height + house_height*tile_height, tile_width, tile_height, black, &map);
+            //printf("Spawning house tile at (%d,%d)\n",x*tile_width + w*tile_width, ty + house_height*tile_height);
+            spawn_ball(tx + w*tile_width,
+                       ty,
+                       tile_width, tile_height, &map, no_color, tex);
+            spawn_ball(x*tile_width + w*tile_width,
+                       ty + house_height*tile_height,
+                       tile_width, tile_height, &map, no_color, tex);
         }
 
 
+        //left & right wall
         for (int h = 0; h < house_height + 1; h++) {
-            //printf("Spawning house tile at (%d,%d)\n", x*tile_width+ house_width*tile_width, h*tile_height);
-
-            spawn_ball(x*tile_width, y*tile_width + h*tile_height, tile_width, tile_height, yellow, &map);
-            spawn_ball(x*tile_width + house_width*tile_width, y*tile_width + h*tile_height, tile_width, tile_height, green, &map);
+            //printf("Spawning house tile at (%d,%d)\n", tx+ house_width*tile_width, h*tile_height);
+            spawn_ball(tx,
+                       y*tile_width + h*tile_height,
+                       tile_width, tile_height, &map, no_color, tex);
+            spawn_ball(tx + house_width*tile_width,
+                       y*tile_width + h*tile_height,
+                       tile_width, tile_height, &map, no_color, tex);
         }
+
+        //---------------------------collision_map------------------------------//
+        //top
+        spawn_ball(tx,
+                   ty,
+                   (house_width+1)*tile_width, tile_height, &collision_map, black, NULL);
+        //bottom
+        spawn_ball(tx,
+                   ty + house_height*tile_width,
+                   (house_width+1)*tile_width, tile_height, &collision_map, no_color, NULL);
+
+        //left
+        spawn_ball(tx,
+                   ty,
+                   tile_width, tile_height*house_height, &collision_map, no_color, paladin);
+        //right
+        spawn_ball(tx + tile_width*house_width,
+                   ty,
+                   tile_width, tile_height*house_height, &collision_map, no_color, human);
 
 
 }
@@ -186,7 +234,10 @@ void switch_color(ball* tile) {
     tile->color = ca;}
 }
 
+//WASD scrolling
 void move_map(int dx, int dy) {
+  //grid at movables[0] w extra handeling below
+
   //determine largest quantity
   size_t maxm = (*movables[1])->num;
 
@@ -196,7 +247,7 @@ void move_map(int dx, int dy) {
     }
   }
 
-  //grid excluded
+  //------handeling of movables 1 to MQ-------//
   for(size_t j = 1; j < MQ; j++) {
     for(size_t i = 0; i < maxm; i++) {
       if (i < (*movables[j])->num) {
@@ -206,10 +257,7 @@ void move_map(int dx, int dy) {
     }
   }
 
-
-
-
-  //grid logic
+  //-------------grid handeling---------------//
   uint8_t reset_x = 0;
   uint8_t reset_y = 0;
 
@@ -284,7 +332,7 @@ void reset_flags(uint8_t squad_num) {
 
 void set_flag(vec2D flag) {
   formation* squat = &army[formation_selector];
-  printf("Setting flag (%d,%d)\n", formation_selector, squat->last_flag);
+  //printf("Setting flag (%d,%d)\n", formation_selector, squat->last_flag);
 
   squat->flags[squat->last_flag] = flag;
   squat->last_flag = (squat->last_flag + 1) % FLAG_LIMIT;
@@ -325,14 +373,16 @@ void move_army(float troop_velo){
     squat = &army[i];
     flag = squat->flags[squat->curr_flag];
 
-    for (uint8_t j = 0; j < squat->num; j++) {
-      move_troop(squat->troops[j], 1, flag);
-      t = &troops->arr[squat->troops[j]];
+    if (flag.x != 0 && flag.y != 0) {
+      for (uint8_t j = 0; j < squat->num; j++) {
+        move_troop(squat->troops[j], 1, flag);
+        t = &troops->arr[squat->troops[j]];
 
-      //if (i == 0) {printf("Distance to flag: %f\n",magnitude(dvec(t->pos, flag)));}
-      if (magnitude(dvec(t->pos, flag)) < 1) {
-        squat->flags[squat->curr_flag] = origin;
-        squat->curr_flag = (squat->curr_flag + 1) % FLAG_LIMIT;
+        //if (i == 0) {printf("Distance to flag: %f\n",magnitude(dvec(t->pos, flag)));}
+        if (magnitude(dvec(t->pos, flag)) < 1) {
+          squat->flags[squat->curr_flag] = origin;
+          squat->curr_flag = (squat->curr_flag + 1) % FLAG_LIMIT;
+        }
       }
     }
   }
@@ -409,9 +459,9 @@ void setup()
   colonists->num = 0;
   colonists->len = 10;
 
-  spawn_ball(500,500, COLONIST_WIDTH, COLONIST_HEIGHT, red, &colonists);
-  spawn_ball(550,500, COLONIST_WIDTH, COLONIST_HEIGHT, red, &colonists);
-  spawn_ball(600,500, COLONIST_WIDTH, COLONIST_HEIGHT, red, &colonists);
+  spawn_ball(500,500, COLONIST_WIDTH, COLONIST_HEIGHT, &colonists, red, NULL);
+  spawn_ball(550,500, COLONIST_WIDTH, COLONIST_HEIGHT, &colonists, red, NULL);
+  spawn_ball(600,500, COLONIST_WIDTH, COLONIST_HEIGHT, &colonists, red, NULL);
 
   res.colonists = 3;
 
@@ -419,11 +469,11 @@ void setup()
   troops->num = 0;
   troops->len = 10;
 
-  spawn_ball(WINDOW_WIDTH/2, WINDOW_HEIGHT/2, TROOP_WIDTH, TROOP_HEIGHT, red, &troops);
-  spawn_ball(WINDOW_WIDTH/2 + 250, WINDOW_HEIGHT/2,TROOP_WIDTH, TROOP_HEIGHT, red, &troops);
-  spawn_ball(WINDOW_WIDTH/2 + 500, WINDOW_HEIGHT/2,TROOP_WIDTH, TROOP_HEIGHT, red, &troops);
-  spawn_ball(WINDOW_WIDTH/2 + 750, WINDOW_HEIGHT/2,TROOP_WIDTH, TROOP_HEIGHT, red, &troops);
-  spawn_ball(WINDOW_WIDTH/2 + 1000, WINDOW_HEIGHT/2,TROOP_WIDTH, TROOP_HEIGHT, red, &troops);
+  spawn_ball(WINDOW_WIDTH/2, WINDOW_HEIGHT/2, TROOP_WIDTH, TROOP_HEIGHT, &troops, red, NULL);
+  spawn_ball(WINDOW_WIDTH/2 + 250, WINDOW_HEIGHT/2,TROOP_WIDTH, TROOP_HEIGHT, &troops, red, NULL);
+  spawn_ball(WINDOW_WIDTH/2 + 500, WINDOW_HEIGHT/2,TROOP_WIDTH, TROOP_HEIGHT, &troops, red, NULL);
+  spawn_ball(WINDOW_WIDTH/2 + 750, WINDOW_HEIGHT/2,TROOP_WIDTH, TROOP_HEIGHT, &troops, red, NULL);
+  spawn_ball(WINDOW_WIDTH/2 + 1000, WINDOW_HEIGHT/2,TROOP_WIDTH, TROOP_HEIGHT, &troops, red, NULL);
 
   selected_colonists = malloc(COLONIST_LIMIT * sizeof(uint16_t));
   selected_troops = malloc(TROOP_LIMIT * sizeof(uint16_t));
@@ -444,14 +494,16 @@ void setup()
   map->num = 0;
   map->len = 10;
 
-  draw_house(5, 4, 4, 3);
-  draw_house(16, 14, 8, 6);
+  collision_map = malloc(sizeof(bl) + 10 * sizeof(ball));
+  collision_map->num = 0;
+  collision_map->len = 10;
 
   //fill movables with all BLs that should move after pressing WASD
   movables[0] = &grid;
   movables[1] = &colonists;
-  movables[2] = &map;
-  movables[3] = &troops;
+  movables[2] = &troops;
+  movables[3] = &map;
+  movables[4] = &collision_map;
 
 
 
@@ -485,6 +537,9 @@ void setup()
   build_path(path, sizeof(path), separator, 3, "assets", "entity", "human.png");
   human = IMG_LoadTexture(renderer, path);
 
+
+  draw_house(1, 1, 4, 3, 4, brick);
+  draw_house(16, 14, 8, 6, 5, brick);
 }
 
 void process_input()
@@ -585,11 +640,11 @@ void process_input()
                 follow_flag = 0;
                 break;
               case 2:
-                spawn_ball(mouse.x,mouse.y, COLONIST_WIDTH, COLONIST_HEIGHT, red, &colonists);
+                spawn_ball(mouse.x,mouse.y, COLONIST_WIDTH, COLONIST_HEIGHT, &colonists, red, NULL);
                 res.colonists += 1;
                 break;
               case 3:
-                puts("RMB! set_flag trig\n");
+                //puts("RMB! set_flag trig\n");
                 set_flag(mouse);
                 follow_flag = 1;
                 break;
@@ -632,7 +687,6 @@ void update()
 }
 
 
-
 void render_selecting_rect() {
   if (dragging) {
     SDL_SetRenderDrawColor(renderer, 226, 235, 52, 100);
@@ -660,29 +714,6 @@ void render_painting() {
   SDL_RenderTexture(renderer, painting, NULL, &dst);
 }
 
-// void render_flags() {
-//   vec2D flag;
-//
-//   for (uint8_t i = 0; i < 10; i++) {
-//     //printf("j = %d; j < %d\n" ,army[i].curr_flag ,army[i].last_flag);
-//     for (uint8_t j = army[i].curr_flag; j < army[i].last_flag; j++) {
-//       //printf("Rendering flag: (%d,%d)",i,j);
-//       flag = army[i].flags[j];
-//
-//       SDL_FRect flag_rect =
-//       {
-//           flag.x,
-//           flag.y,
-//           30,
-//           30
-//       };
-//
-//       SDL_SetRenderDrawColor(renderer, 235, 146, 52, 255);
-//       SDL_RenderFillRect(renderer, &flag_rect);
-//     }
-//   }
-//
-// }
 
 void render_flags(SDL_Texture* texture) {
   vec2D flag;
@@ -751,27 +782,62 @@ void render_texture(bl** balls, SDL_Texture* texture) {
   }
 }
 
+void render_ball(ball* b) {
+  if (b->pos.x >= 0 && b->pos.y >= 0) {
+    SDL_FRect ball_rect =
+    {
+        b->pos.x,
+        b->pos.y,
+        b->width,
+        b->height
+    };
+
+    //printf("Ball color: r=%d, g=%d, b=%d, a=%d\n", b->color.r, b->color.g, b->color.b, b->color.alpha);
+    //-------------------------------Texture Mode-----------------------------------//
+    if (b->texture != NULL) {
+      SDL_RenderTexture(renderer, b->texture, NULL, &ball_rect);
+    }
+    //----------------------------------Color Mode----------------------------------------//
+    else if (b->color.r != 0 || b->color.g != 0 || b->color.b != 0 || b->color.alpha != 0){
+      SDL_SetRenderDrawColor(renderer, b->color.r, b->color.g, b->color.b, b->color.alpha);
+      SDL_RenderFillRect(renderer, &ball_rect);
+    }
+    else {
+      puts("Color & Texture Mode disabled!");
+    }
+
+  }
+}
+
 void render_balls(bl** balls) {
   ball* b;
   for (size_t i = 0; i < (*balls)->num; i++) {
-
-      //printf("rendering ball at (%f,%f)\n",balls[i].pos.x,balls[i].pos.y);
-      b = &(*balls)->arr[i];
-
-      if (b->pos.x >= 0 && b->pos.y >= 0) {
-        SDL_FRect ball_rect =
-        {
-            b->pos.x,
-            b->pos.y,
-            b->width,
-            b->height
-        };
-
-        SDL_SetRenderDrawColor(renderer, b->color.r, b->color.g, b->color.b, b->color.alpha);
-        SDL_RenderFillRect(renderer, &ball_rect);
-      }
+    b = &(*balls)->arr[i];
+    render_ball(b);
   }
 }
+
+// void render_balls(bl** balls) {
+//   ball* b;
+//   for (size_t i = 0; i < (*balls)->num; i++) {
+//
+//       //printf("rendering ball at (%f,%f)\n",balls[i].pos.x,balls[i].pos.y);
+//       b = &(*balls)->arr[i];
+//
+//       if (b->pos.x >= 0 && b->pos.y >= 0) {
+//         SDL_FRect ball_rect =
+//         {
+//             b->pos.x,
+//             b->pos.y,
+//             b->width,
+//             b->height
+//         };
+//
+//         SDL_SetRenderDrawColor(renderer, b->color.r, b->color.g, b->color.b, b->color.alpha);
+//         SDL_RenderFillRect(renderer, &ball_rect);
+//       }
+//   }
+// }
 
 /*******************************
 * Re-/Draws the window,
@@ -784,8 +850,6 @@ void render()
     SDL_RenderClear(renderer);
 
 
-
-
     //render_texture(&grid, dirt);
     render_balls(&grid);
     render_texture(&colonists, human);
@@ -794,6 +858,7 @@ void render()
     render_flags(flag_tex);
     //render_balls(&map);
     render_texture(&map, brick);
+    render_balls(&collision_map);
     render_selecting_rect();
     //render_painting();
 
@@ -819,6 +884,7 @@ void destroy_window()
     free(selected_colonists);
     free(selected_troops);
     free(map);
+    free(collision_map);
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
