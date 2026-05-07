@@ -1,6 +1,5 @@
 ToDo: <br>
 -Re-Refactor the code, into a less horrendous file-splitting. <br>
--Add Torch texture to the Repo. <br>
 
 Refactor render_texture and render_balls into one function, that first uses
 the ball->color attr to determine the mode, if color = {0,0,0,0}, switch to texture mode
