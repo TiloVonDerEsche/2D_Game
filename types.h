@@ -2,11 +2,13 @@
 #define TYPES_H
 
 #include <stdio.h>
-#include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include "E:\\res\\SDL3\\include\\SDL3\\SDL.h"
-#include "E:\\res\\SDL3_image\\include\\SDL3_image\\SDL_image.h"
+#include <math.h>
+
+#include <SDL3/SDL.h>
+#include <SDL3_image/SDL_image.h>
+
 #include "constants.h"
 
 typedef struct Vec2D {

@@ -5,7 +5,7 @@
 #include "game_logic.h"
 #include "utils.h"
 
-char* separator = "\\";
+char* separator = "/";
 
 game_state gs = {
     .window_title = "2D Game",

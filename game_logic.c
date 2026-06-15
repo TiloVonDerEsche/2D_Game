@@ -1,5 +1,5 @@
 #include "game_logic.h"
-#include "E:\\res\\SDL3_image\\include\\SDL3_image\\SDL_image.h"
+#include <SDL3_image/SDL_image.h>
 
 size_t get_tile_index(game_state* gs, int x, int y) {
     int tile_x = x / gs->tile_width;
