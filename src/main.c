@@ -105,27 +105,29 @@ int initialize_window(game_state* gs) {
 }
 
 void setup(game_state* gs) {
+    char base[512];
     char path[512];
+    build_path(base, sizeof(base), separator, 2, "src", "assets");
 
-    build_path(path, sizeof(path), separator, 3, "assets", "tileable_brick_ground_textures", "Ground_03.png");
+    build_path(path, sizeof(path), separator, 3, base, "tileable_brick_ground_textures", "Ground_03.png");
     gs->brick = IMG_LoadTexture(gs->renderer, path);
 
-    build_path(path, sizeof(path), separator, 3, "assets", "tileable_dirt_textures", "Dirt_03.png");
+    build_path(path, sizeof(path), separator, 3, base, "tileable_dirt_textures", "Dirt_03.png");
     gs->dirt = IMG_LoadTexture(gs->renderer, path);
 
-    build_path(path, sizeof(path), separator, 3, "assets", "tileable_dirt_textures", "painting-27.jpg");
+    build_path(path, sizeof(path), separator, 3, base, "tileable_dirt_textures", "painting-27.jpg");
     gs->painting = IMG_LoadTexture(gs->renderer, path);
 
-    build_path(path, sizeof(path), separator, 3, "assets", "medieval_signs", "torch.png");
+    build_path(path, sizeof(path), separator, 3, base, "medieval_signs", "torch.png");
     gs->flag_tex = IMG_LoadTexture(gs->renderer, path);
 
-    build_path(path, sizeof(path), separator, 3, "assets", "entity", "paladin.png");
+    build_path(path, sizeof(path), separator, 3, base, "entity", "paladin.png");
     gs->paladin = IMG_LoadTexture(gs->renderer, path);
 
-    build_path(path, sizeof(path), separator, 3, "assets", "entity", "vault_guard.png");
+    build_path(path, sizeof(path), separator, 3, base, "entity", "vault_guard.png");
     gs->guard = IMG_LoadTexture(gs->renderer, path);
 
-    build_path(path, sizeof(path), separator, 3, "assets", "entity", "human.png");
+    build_path(path, sizeof(path), separator, 3, base, "entity", "human.png");
     gs->human = IMG_LoadTexture(gs->renderer, path);
 
     gs->grid = malloc(sizeof(bl) + 5 * sizeof(ball));
